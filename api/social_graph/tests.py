@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, Client
 from neomodel import db
 from .models import Person
 from . import views
@@ -11,6 +11,7 @@ class PersonsTestCase(TestCase):
         self.a = Person(name='test_a').save()
         self.b = Person(name='test_b', age=23).save()
         self.c = Person(name='test_c', age=1000).save()
+        self.client = Client()
     
     def tearDown(self):
         views.delete_node(self.a)
@@ -64,22 +65,32 @@ class PersonsTestCase(TestCase):
         invalid_req_body['invalid'] = 'key'
         self.assertEqual(views.patch_req_is_valid(invalid_req_body, params), False)
 
+    def test_create_relationship(self):
+        req_body = {
+            "rel": "FRIEND",
+            "from": self.a.uid,
+            "to": self.b.uid
+        }
+        res = self.client.post('/api/create_rel', json.dumps(req_body), content_type='application/json')
+
+        # should return HttpResponse
+        self.assertIsInstance(res, HttpResponse)
+
+        # Nodes A and B should be connected
+        self.a.friend.is_connected(self.b)
+
     def test_get_persons(self):
-        req = HttpRequest()
-        req.method = 'GET'
-        res = views.persons(req)
+        res = self.client.get('/api/persons')
         
         # should return HttpResponse
         self.assertIsInstance(res, HttpResponse)
 
         # should return node_set with length > 0
-        node_set = json.loads(res.content)
+        node_set = res.content
         self.assertGreater(len(node_set), 0)
 
     def test_get_person_with_uid(self):
-        req = HttpRequest()
-        req.method = 'GET'
-        res = views.person_with_uid(req, self.a.uid)
+        res = self.client.get('/api/persons/{}'.format(self.a.uid))
 
         # should return HttpResponse
         self.assertIsInstance(res, HttpResponse)
