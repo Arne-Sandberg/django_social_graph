@@ -3,6 +3,7 @@ from neomodel import db
 from .models import Person
 from . import views
 from django.http import HttpRequest, HttpResponse
+import json
 
 # Create your tests here.
 class PersonsTestCase(TestCase):
@@ -72,6 +73,19 @@ class PersonsTestCase(TestCase):
         self.assertIsInstance(res, HttpResponse)
 
         # should return node_set with length > 0
-        node_set = res.content
+        node_set = json.loads(res.content)
         self.assertGreater(len(node_set), 0)
+
+    def test_get_person_with_uid(self):
+        req = HttpRequest()
+        req.method = 'GET'
+        res = views.person_with_uid(req, self.a.uid)
+
+        # should return HttpResponse
+        self.assertIsInstance(res, HttpResponse)
+
+        # should return JSON object with fields matching node with same uid
+        res_content = json.loads(res.content.decode('utf-8'))
+        for field in res_content:
+            self.assertEqual(res_content[field], self.a[field])
 
