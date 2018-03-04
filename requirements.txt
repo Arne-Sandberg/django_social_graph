@@ -1,0 +1,4 @@
+Django==2.0.2
+neo4j-driver==1.5.2
+neomodel==3.2.5
+pytz==2018.3
