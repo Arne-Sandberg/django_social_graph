@@ -15,6 +15,28 @@ def query_node_with_id(id, node_class, node_label):
     results, meta = db.cypher_query('MATCH ({}) WHERE ID({}) = {} RETURN {}'.format(node_label, node_label, id, node_label))
     return [node_class.inflate(row[0]) for row in results]
 
+def query_node_with_uid(uid, node_class):
+    return node_class.nodes.get(uid=uid)
+
+def delete_node(node):
+    return node.delete()
+
+@csrf_exempt
+def create_relationship(request):
+    if request.method == 'POST':
+        reqBody = json.loads(request.body)
+        from_node_with_id = reqBody['from']
+        to_node_with_id = reqBody['to']
+
+        from_node = query_node_with_uid(from_node_with_id, Person)
+        print(from_node)
+        to_node = query_node_with_uid(to_node_with_id, Person)
+        print(to_node)
+
+        return HttpResponse(from_node.friend.connect(to_node))
+
+    return HttpResponse('GET method not allowed.')
+
 # GET, POST /persons/
 @csrf_exempt
 def persons(request):
@@ -69,7 +91,7 @@ def person_with_id(request, id):
 
         # DELETE: Protect with admin
         if request.method == 'DELETE':
-            return HttpResponse(node.delete())
+            return delete_node(node)
 
     else:
         # no data

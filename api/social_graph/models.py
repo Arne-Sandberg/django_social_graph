@@ -10,9 +10,6 @@ class Country(StructuredNode):
     # traverse incoming IS_FROM relation, inflate to Person objects
     inhabitant = RelationshipFrom('Person', 'IS_FROM')
 
-class FriendRel(StructuredRel):
-    met = StringProperty()
-
 class Person(StructuredNode):
     """Class for creating a Neo4j structured node Person
     
@@ -25,7 +22,7 @@ class Person(StructuredNode):
 
     # traverse outgoing IS_FROM relations, inflate to Country objects
     country = RelationshipTo(Country, 'IS_FROM')
-    friend = Relationship('Person', 'FRIEND', model=FriendRel)
+    friend = Relationship('Person', 'FRIEND')
 
     def __init__(self, *initial_data, **kwargs):
         """
@@ -37,7 +34,7 @@ class Person(StructuredNode):
         Keyword Arguments:
             kwargs {any} -- Set additional fields
         """
-        
+        super().__init__()
         for dictionary in initial_data:
             for key in dictionary:
                 setattr(self, key, dictionary[key])
