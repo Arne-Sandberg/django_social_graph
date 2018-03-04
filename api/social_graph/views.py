@@ -7,7 +7,15 @@ from neomodel import db
 from django.views.decorators.csrf import csrf_exempt
 
 # Create your views here.
+CREATE_RELATIONSHIP_PARAMS = dict.fromkeys(['rel', 'from', 'to'])
 PERSON_PARAMS = dict.fromkeys(['name', 'age'])
+
+# should return RelationshipDefinition
+def find_rel(from_node, rel):
+    if rel == 'FRIEND':
+        return from_node.friend
+    else:
+        return None
 
 def query_node_with_id(id, node_class, node_label):
     node_label = node_label
@@ -20,19 +28,52 @@ def query_node_with_uid(uid, node_class):
 def delete_node(node):
     return node.delete()
 
+def post_req_is_valid(req_body, params):
+    is_valid = True
+    if not req_body:
+        is_valid = False
+    if not all (param in params for param in req_body):
+        is_valid = False
+    if not all (field in req_body for field in params):
+        is_valid = False
+    return is_valid
+
+def patch_req_is_valid(req_body, params):
+    is_valid = True
+    if not req_body:
+        is_valid = False
+    for field in req_body:
+        if field not in params:
+            is_valid = False
+    return is_valid
+
+# POST /create_rel
 @csrf_exempt
 def create_relationship(request):
     if request.method == 'POST':
-        reqBody = json.loads(request.body)
-        from_node_with_id = reqBody['from']
-        to_node_with_id = reqBody['to']
+        params = CREATE_RELATIONSHIP_PARAMS
+        req_body = json.loads(request.body)
+        if post_req_is_valid(req_body, params):
+            from_node = query_node_with_uid(req_body['from'], Person)
+            to_node = query_node_with_uid(req_body['to'], Person)
+            # validate nodes
+            if not from_node or not to_node:
+                return HttpResponseBadRequest()
 
-        from_node = query_node_with_uid(from_node_with_id, Person)
-        to_node = query_node_with_uid(to_node_with_id, Person)
+            relationship = find_rel(from_node, req_body['rel'])
 
-        return HttpResponse(from_node.friend.connect(to_node), content_type='application/json')
+            # validate relationship
+            if not relationship:
+                return HttpResponseBadRequest()
 
-    return HttpResponse('GET method not allowed.')
+            relationship.connect(to_node)
+
+            return HttpResponse(200)
+
+        else:
+            return HttpResponseBadRequest()
+
+    return HttpResponseBadRequest()
 
 # GET, POST /persons/
 @csrf_exempt
@@ -48,19 +89,17 @@ def persons(request):
     elif request.method == 'POST':
         params = PERSON_PARAMS
 
-        reqBody = json.loads(request.body)
+        req_body = json.loads(request.body)
         # validate request body
-        if not reqBody:
+        if post_req_is_valid(req_body, params):
+            for field in req_body:
+                params[field] = req_body[field]
+            # if valid -> map to StructuredNode 
+            node = Person(params).save()
+            resData = json.dumps(node.get_props())
+            return HttpResponse(resData, content_type='application/json')
+        else:
             return HttpResponseBadRequest()
-        for field in reqBody:
-            if field not in params:
-                return HttpResponseBadRequest()
-            params[field] = reqBody[field]
-
-        # if valid -> map to StructuredNode 
-        node = Person(params).save()
-        resData = json.dumps(node.get_props())
-        return HttpResponse(resData, content_type='application/json')
 
     else:
         return HttpResponseBadRequest()
@@ -79,21 +118,23 @@ def person_with_uid(request, uid):
             return HttpResponse(resData, content_type='application/json')
         
         # PATCH
-        if request.method == 'PATCH':
-            reqBody = json.loads(request.body)
-            if not reqBody:
+        elif request.method == 'PATCH':
+            req_body = json.loads(request.body)
+            if patch_req_is_valid(req_body, params):
+                for field in req_body:
+                    node[field] = req_body[field]
+                node.save()
+                resData = json.dumps(node.get_props())
+                return HttpResponse(resData, content_type='application/json')
+            else:
                 return HttpResponseBadRequest()
-            for field in reqBody:
-                if field not in params:
-                    return HttpResponseBadRequest()
-                node[field] = reqBody[field]
-            node.save()
-            resData = json.dumps(node.get_props())
-            return HttpResponse(resData, content_type='application/json')
 
         # DELETE: Protect with admin
-        if request.method == 'DELETE':
+        elif request.method == 'DELETE':
             return delete_node(node)
+
+        else:
+            return HttpResponseBadRequest()
 
     else:
         # no data
