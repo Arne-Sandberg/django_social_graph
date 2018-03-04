@@ -7,7 +7,6 @@ from neomodel import db
 from django.views.decorators.csrf import csrf_exempt
 
 # Create your views here.
-PERSON_LABEL = 'Person'
 PERSON_PARAMS = dict.fromkeys(['name', 'age'])
 
 def query_node_with_id(id, node_class, node_label):
@@ -16,7 +15,7 @@ def query_node_with_id(id, node_class, node_label):
     return [node_class.inflate(row[0]) for row in results]
 
 def query_node_with_uid(uid, node_class):
-    return node_class.nodes.get(uid=uid)
+    return node_class.nodes.get_or_none(uid=uid)
 
 def delete_node(node):
     return node.delete()
@@ -29,11 +28,9 @@ def create_relationship(request):
         to_node_with_id = reqBody['to']
 
         from_node = query_node_with_uid(from_node_with_id, Person)
-        print(from_node)
         to_node = query_node_with_uid(to_node_with_id, Person)
-        print(to_node)
 
-        return HttpResponse(from_node.friend.connect(to_node))
+        return HttpResponse(from_node.friend.connect(to_node), content_type='application/json')
 
     return HttpResponse('GET method not allowed.')
 
@@ -45,7 +42,6 @@ def persons(request):
         resData = []
         for node in node_set:
             resData.append(node.get_props())
-        print(resData[0])
         resData = json.dumps(resData)
         return HttpResponse(resData, content_type='application/json')
 
@@ -54,9 +50,11 @@ def persons(request):
 
         reqBody = json.loads(request.body)
         # validate request body
+        if not reqBody:
+            return HttpResponseBadRequest()
         for field in reqBody:
             if field not in params:
-                return HttpResponse(400)
+                return HttpResponseBadRequest()
             params[field] = reqBody[field]
 
         # if valid -> map to StructuredNode 
@@ -65,14 +63,15 @@ def persons(request):
         return HttpResponse(resData, content_type='application/json')
 
     else:
-        return HttpResponse(400)
+        return HttpResponseBadRequest()
 
 # GET /persons/<int:id>
 @csrf_exempt
-def person_with_id(request, id):
+def person_with_uid(request, uid):
     params = PERSON_PARAMS
-    node_set = query_node_with_id(id, Person, PERSON_LABEL)
-    node = node_set[0] if node_set else None
+    # node_set = query_node_with_id(id, Person, PERSON_LABEL)
+    # node = node_set[0] if node_set else None
+    node = query_node_with_uid(uid, Person)
 
     if node:
         if request.method == 'GET':
@@ -82,9 +81,11 @@ def person_with_id(request, id):
         # PATCH
         if request.method == 'PATCH':
             reqBody = json.loads(request.body)
+            if not reqBody:
+                return HttpResponseBadRequest()
             for field in reqBody:
                 if field not in params:
-                    return HttpResponse(400)
+                    return HttpResponseBadRequest()
                 node[field] = reqBody[field]
             node.save()
             resData = json.dumps(node.get_props())
@@ -96,6 +97,6 @@ def person_with_id(request, id):
 
     else:
         # no data
-        return HttpResponse()
+        return HttpResponseBadRequest()
 
     
