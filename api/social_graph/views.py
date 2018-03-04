@@ -45,6 +45,7 @@ def persons(request):
         resData = []
         for node in node_set:
             resData.append(node.get_props())
+        print(resData[0])
         resData = json.dumps(resData)
         return HttpResponse(resData, content_type='application/json')
 

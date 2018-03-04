@@ -48,4 +48,9 @@ class Person(StructuredNode):
         self.__dict__[key] = item
     
     def get_props(self):
-        return self.__dict__.copy()
+        primitive = (int, str, bool)
+        props = {}
+        for key in self.__dict__:
+            if isinstance(self.__dict__[key], primitive):
+                props[key] = self.__dict__[key]
+        return props
